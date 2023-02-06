@@ -72,7 +72,7 @@ img{ max-width:100%;}
  }
  .received_withd_msg p {
   background: #ebebeb none repeat scroll 0 0;
-  border-radius: 3px;
+  border-radius: 10px;
   color: #646464;
   font-size: 14px;
   margin: 0;
@@ -94,7 +94,7 @@ img{ max-width:100%;}
 
  .sent_msg p {
   background: #05728f none repeat scroll 0 0;
-  border-radius: 3px;
+  border-radius: 10px;
   font-size: 14px;
   margin: 0; color:#fff;
   padding: 5px 10px 5px 12px;
@@ -114,7 +114,9 @@ img{ max-width:100%;}
   width: 100%;
 }
 
-.type_msg {border-top: 1px solid #c4c4c4;position: relative;}
+.type_msg {
+  border-top: 1px solid #c4c4c4;
+  position: relative;}
 .msg_send_btn {
   background: #05728f none repeat scroll 0 0;
   border: medium none;
@@ -128,8 +130,73 @@ img{ max-width:100%;}
   top: 11px;
   width: 33px;
 }
+
+.refresh_btn {
+  background: #05728f none repeat scroll 0 0;
+  border: medium none;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  font-size: 17px;
+  height: 33px;
+  right: 0;
+  top: 11px;
+  width: 33px;
+}
+
+.trash_btn {
+  background: #d31111a4 none repeat scroll 0 0;
+  border: medium none;
+  border-radius: 10%;
+  color: #fff;
+  cursor: pointer;
+  font-size: 17px;
+  height: 33px;
+  right: 0;
+  top: 11px;
+  width: 33px;
+}
+
+.trash_contact_btn {
+  background: #e28711a4 none repeat scroll 0 0;
+  border: medium none;
+  border-radius: 10%;
+  color: #fff;
+  cursor: pointer;
+  font-size: 17px;
+  height: 33px;
+  right: 0;
+  top: 11px;
+  width: 33px;
+}
+
+.fav_btn {
+  background: #eee5ce none repeat scroll 0 0;
+  border: medium none;
+  border-radius: 10%;
+  color: #d4af47;
+  cursor: pointer;
+  font-size: 17px;
+  height: 33px;
+  right: 0;
+  top: 11px;
+  width: 33px;
+}
+
+.add_btn {
+  background: green none repeat scroll 0 0;
+  border: medium none;
+  border-radius: 10%;
+  color: #fff;
+  cursor: pointer;
+  font-size: 17px;
+  height: 33px;
+  right: 0;
+  top: 11px;
+  width: 33px;
+}
 .messaging { padding: 0 0 50px 0;}
 .msg_history {
-  height: 516px;
+  height: 500px;
   overflow-y: auto;
 }
