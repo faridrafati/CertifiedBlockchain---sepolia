@@ -7,7 +7,7 @@ import {CERTIFICATE_TOKEN_ABI,CERTIFICATE_TOKEN_ADDRESS} from './components/cert
 import {TextField, Button} from '@mui/material';
 import resetProvider from './resetProvider';
 import HideShow from './HideShow';
-import "./App.css";
+import './components/css/App.css';
 import { sha256 } from 'js-sha256';
 
 class Certificate extends resetProvider {  

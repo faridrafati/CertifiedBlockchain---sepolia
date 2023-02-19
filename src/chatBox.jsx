@@ -20,7 +20,6 @@ class ChatBox extends resetProvider {
         myInboxSize : 0,
         myOutboxSize: 0,
         selectedAddress:'',
-        display: 'none',
         checkRegister: false,
         contacts: [],
         messages: [],
@@ -33,7 +32,7 @@ class ChatBox extends resetProvider {
     }
 
     getContractProperties = async () => {
-        let {Contract,web3} = this.state;
+        let {Contract} = this.state;
         let contractProperties = await Contract.methods.getContractProperties().call();
         let owner = contractProperties[0];
         let registeredUsersAddress = contractProperties[1];
@@ -42,7 +41,7 @@ class ChatBox extends resetProvider {
         for(let i = 0; i<registeredUsersAddress.length; i++) {
             let registeredUsersAddress = contractProperties[1][i];
             let registeredUsersName = contractProperties[2][i];
-            contacts.push({address: registeredUsersAddress, name: web3.utils.toAscii(registeredUsersName)});
+            contacts.push({address: registeredUsersAddress, name: this.bytes32toAscii(registeredUsersName)});
         }
         this.setState({contacts});     
         this.setState({owner, registeredUsersAddress, registeredUsersName});
@@ -63,7 +62,6 @@ class ChatBox extends resetProvider {
         await this.getContractProperties();
         await this.checkUserRegistration();
         await this.getUpdateMessages();
-        await this.getUpdateContactList();
         await this.getMyContactList();
 
     }
@@ -82,18 +80,24 @@ class ChatBox extends resetProvider {
 
     getMyContactList = async () => {
         let {Contract,account,contacts} = this.state;
-        let initialContactList = await Contract.methods.getMyContactList().call({}, {from: account});
+        let initialContactList = await Contract.methods.getMyContactList().call({from: account});
         let editedContactList = initialContactList;
+        for(let i = 0; i < contacts;i++){
+            contacts[i].listed = false;
+        }
         this.setState({initialContactList,editedContactList});
         for (let i=0; i<contacts.length; i++) {
             for (let j=0; j<initialContactList.length ; j++) {
-                if(contacts[i].address === initialContactList[j].address){
-                    contacts[i].listed = true;
-                } else {
-                    contacts[i].listed = false;
+                if(initialContactList[j]!=='0x0000000000000000000000000000000000000000'){
+                    if(contacts[i].address.toLowerCase() === initialContactList[j].toLowerCase()){
+                        contacts[i].listed = true;
+                        break;
+                    }
                 }
             }
         }
+        this.setState({contacts});
+
     }
 
     editContactListHandler = async (index) => {
@@ -116,49 +120,28 @@ class ChatBox extends resetProvider {
         await this.extraInitContract();
     }
 
-    getUpdateContactList = async () => {
-        let {contacts,account, Contract,display} = this.state;
-        let value = await Contract.methods.getMyContactList().call({from: account});
-        for(let i = 0; i < contacts;i++){
-            contacts[i].listed = false;
-        }
-        for(let j = 0; j < 64 ; j++){
-            if(value[j]!=='0x0000000000000000000000000000000000000000'){
-                for(let i = 0; i < contacts.length; i++){
-                    if(contacts[i].address.toLowerCase() === value[j].toLowerCase()){
-                        contacts[i].listed = true;
-
-                    }
-                }
-            }
-        }
-        display = "inline";
-        this.setState({display,contacts});
-    }
-
     getUpdateMessages = async () =>{
-        let {account, Contract, myInboxSize,myOutboxSize,display} = this.state;
+        let {account, Contract, myInboxSize,myOutboxSize} = this.state;
         let value = await Contract.methods.getMyInboxSize().call({from: account});
         myOutboxSize = value[0];
         myInboxSize = value[1];
         this.setState({myOutboxSize,myInboxSize});
-        display = "inline";
-        this.setState({display});
         await this.retrieveMessages();
         this.sortMessages();
     }
 
 
     retrieveMessages = async () => {
-        let {web3,Contract,account,myInboxSize,myOutboxSize} = this.state;
+        let {Contract,account,myInboxSize,myOutboxSize} = this.state;
         let value = await Contract.methods.receiveMessages().call({}, {from: account});
         let messages = [];
         for(let i = 0; i<myInboxSize; i++) {
             if(value[1][i] !== 0){
-            let content = (value[0][i]);
-            let timestamp = value[1][i];
-            let sender = value[2][i];
-            messages.push({from: sender,to: account ,message: web3.utils.toAscii(content),time: timestamp});}
+                let content = (value[0][i]);
+                let timestamp = value[1][i];
+                let sender = value[2][i];
+                messages.push({from: sender,to: account ,message: this.bytes32toAscii(content),time: timestamp});
+            }
         }
         value = await Contract.methods.sentMessages().call({}, {from: account});
         for(let i = 0; i<myOutboxSize; i++) {
@@ -166,13 +149,18 @@ class ChatBox extends resetProvider {
             let content = (value[0][i]);
             let timestamp = value[1][i];
             let receiver = value[2][i];
-            messages.push({from: account,to: receiver,message: web3.utils.toAscii(content),time: timestamp});}
+            messages.push({from: account,to: receiver,message: this.bytes32toAscii(content),time: timestamp});}
         }
         this.setState({messages});
     }
+    bytes32toAscii = (content) => {
+        content = this.state.web3.utils.toAscii(content);
+        return content.replace(/[^a-zA-Z0-9 ]/g, '');
+        
+    }
 
     sortMessages = () => {
-        let {messages} = this.state;
+        let {messages,contacts,account} = this.state;
         messages = _.orderBy(messages, ['time'], ['asc']);
         for (let i = 0; i < messages.length; i++) {
             let date = new Date(parseInt(messages[i]['time'])*1000).toLocaleDateString("en-US");
@@ -180,33 +168,19 @@ class ChatBox extends resetProvider {
             messages[i]['beautyTime'] = date + ' | ' + time;
         }
         this.setState({messages});
-        let contacts = this.state.contacts;
         for(let i=0; i<contacts.length; i++) {
-            let lastActivity=0;
-            for (let j=0; j<messages.length; j++){
-                if((messages[j].from === contacts[i].address)&&(messages[j].from !== messages[j].to)){
-                    if(lastActivity < messages[j].time){
-                        lastActivity = messages[j].time;    
-                    };
-                }
-
-                if((messages[j].to === contacts[i].address)&&(messages[j].from == messages[j].to)){
-                    if(lastActivity < messages[j].time){
-                        lastActivity = messages[j].time;    
-                    };
-                }
-
-            }
-            if(lastActivity !== 0){
-                let date = new Date(parseInt(lastActivity)*1000).toLocaleDateString("en-US");
-                let time = new Date(parseInt(lastActivity)*1000).toLocaleTimeString("en-US");
-                contacts[i].lastActivity = date + ' | ' + time;
-            }else{
-                contacts[i].lastActivity = "";
-            }
-
-
+            contacts[i].lastActivity = "";
         }
+        for (let j=0; j<messages.length; j++){
+            for(let i=0; i<contacts.length; i++) {
+                if((messages[j].from === account)&&(messages[j].to === contacts[i].address)) {
+                    contacts[i].lastActivity = messages[j].beautyTime;
+                }else if((messages[j].to === account)&&(messages[j].from === contacts[i].address)){
+                    contacts[i].lastActivity = messages[j].beautyTime;
+                }
+            }
+        }
+
         this.setState({contacts});
     }
 
@@ -287,7 +261,6 @@ class ChatBox extends resetProvider {
 
     onClickContactHandler = async (index) => {
         let {selectedContactIndex} = this.state;
-        await this.getUpdateContactList();
         selectedContactIndex = index;
         this.setState({selectedContactIndex});
         await this.getUpdateMessages();
@@ -301,17 +274,15 @@ class ChatBox extends resetProvider {
     onSearchHandler = (e) => {
         let {searchValue} = this.state.searchValue;
         searchValue = e.currentTarget.value;
-        if(searchValue===""){
-            this.getUpdateContactList(); 
-        }
         this.setState({searchValue});
     }
 
     onStarClickHandler = async () => {
-        let {showListedContact} = this.state;
+        let {showListedContact, selectedContactIndex} = this.state;
         showListedContact = !showListedContact;
-        this.setState({showListedContact});
-        await this.getUpdateContactList();
+        selectedContactIndex = 0;
+        this.setState({showListedContact, selectedContactIndex});
+        await this.getMyContactList();
     }
 
    render() {
@@ -325,10 +296,8 @@ class ChatBox extends resetProvider {
                 return (contact.name.toLowerCase().includes(searchValue.toLowerCase())||contact.address.toLowerCase().includes(searchValue.toLowerCase()));
             });
             if(contacts.length === 0) {
-                contacts.push({address:'0x0',name:'Not Found'})
+                contacts.push({address:'0x0',name:'Not Found'});
             }
-
-
         return (
             <div>
                 <section className="bg-light text-center">
@@ -340,85 +309,84 @@ class ChatBox extends resetProvider {
                         owner = {owner}
                     />
                 </section>
-            {
-                (checkRegister === false) ? <LoginForm register = {this.registerUser}/> : 
-                <div className="container">
-            <div className="messaging">
-                <div className="inbox_msg">
-                    <div className="inbox_people">
-                        <div className="headind_srch">
-                            <div className="recent_heading">
-                                <button className="refresh_btn" type="button" id = 'refresh' onClick={()=>this.getUpdateMessages()}><i className="fa fa-refresh" aria-hidden="true"></i></button>
-                                <button className="trash_btn ms-2" type="button" id = 'trash' onClick={()=>this.clearInbox()}><i className="fa fa-trash" aria-hidden="true"></i></button>
-                                <button className="fav_btn ms-2" type="button" id = 'favorite' onClick={()=>this.onStarClickHandler()}><i className={showListedContact?"fa fa-star":"fa fa-star-o"} aria-hidden="true"></i></button>
-                                <button className="trash_contact_btn ms-2" type="button" id = 'contact' onClick={()=>this.clearContactList()}><i className="fa fa-user-times" aria-hidden="true"></i>
-                                </button>
-                            
-                            </div>
+                {
+                    (checkRegister === false) ? <LoginForm register = {this.registerUser}/> : 
+                        <div className="container">
+                            <div className="messaging">
+                                <div className="inbox_msg">
+                                    <div className="inbox_people">
+                                        <div className="headind_srch">
+                                            <div className="recent_heading">
+                                                <button className="refresh_btn" type="button" id = 'refresh' onClick={()=>this.getUpdateMessages()}><i className="fa fa-refresh" aria-hidden="true"></i></button>
+                                                <button className="trash_btn ms-2" type="button" id = 'trash' onClick={()=>this.clearInbox()}><i className="fa fa-trash" aria-hidden="true"></i></button>
+                                                <button className="fav_btn ms-2" type="button" id = 'favorite' onClick={()=>this.onStarClickHandler()}><i className={showListedContact?"fa fa-star":"fa fa-star-o"} aria-hidden="true"></i></button>
+                                                <button className="trash_contact_btn ms-2" type="button" id = 'contact' onClick={()=>this.clearContactList()}><i className="fa fa-user-times" aria-hidden="true"></i></button>
+                                            </div>
 
-                            <div className="srch_bar">
-                                <div className="stylish-input-group">
-                                    <input type="text" className="search-bar"  value={searchValue} placeholder="Search" onChange={this.onSearchHandler}/>
-                                    <span className="input-group-addon">
-                                        <button type="button"> 
-                                            <i className="fa fa-search" aria-hidden="true"></i> 
-                                        </button>
-                                    </span> 
-                                </div>
-                            </div>
-                        </div>
-                        <div className="inbox_chat">
-                            {contacts.map((contact,index)=>(
-                                <div className={selectedContactIndex !== index ? "chat_list" : "chat_list active_chat"} key={index} onClick={()=>this.onClickContactHandler(index)}>
-                                    
-                                    <div className="chat_people" style={{cursor: "pointer"}}>
-                                        <div className="chat_img"> <img src={userProfilePic} alt={contact.name} /> </div>
-                                        <div className="chat_ib">
-                                            <h5>{contact.address !== account ? contact.name : contact.name + ' (Saved Messages)'} <span className="chat_date" onClick={()=>this.editContactListHandler(index)}><Like liked = {contact.listed}/></span></h5>
-                                            <p>{contact.address}</p>
-                                            <h5><span className="chat_date">{contact.lastActivity}</span></h5>
+                                            <div className="srch_bar">
+                                                <div className="stylish-input-group">
+                                                    <input type="text" className="search-bar"  value={searchValue} placeholder="Search" onChange={this.onSearchHandler}/>
+                                                    <span className="input-group-addon">
+                                                        <button type="button"> 
+                                                            <i className="fa fa-search" aria-hidden="true"></i> 
+                                                        </button>
+                                                    </span> 
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="inbox_chat">
+                                            {contacts.map((contact,index)=>(
+                                                <div className={selectedContactIndex !== index ? "chat_list" : "chat_list active_chat"} key={index} onClick={()=>this.onClickContactHandler(index)}>
+                                                    
+                                                    <div className="chat_people" style={{cursor: "pointer"}}>
+                                                        <div className="chat_img"> <img src={userProfilePic} alt={contact.name} /> </div>
+                                                        <div className="chat_ib">
+                                                            <h5>{contact.address !== account ? contact.name : contact.name + ' (Saved Messages)'} <span className="chat_date" onClick={()=>this.editContactListHandler(index)}><Like liked = {contact.listed}/></span></h5>
+                                                            <p>{contact.address}</p>
+                                                            <h5><span className="chat_date">{contact.lastActivity}</span></h5>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="mesgs">
-                    <div className="msg_history">
-                        { messages.map((message,index) =>(
-                            ((message.from === account)&&(message.to === contacts[selectedContactIndex].address)) ?
-                                <div className="outgoing_msg" key={index}>
-                                    <div className="sent_msg">
-                                        <p>{message.message}</p>
-                                        <span className="time_date">{message.beautyTime}</span> 
+                                <div className="mesgs">
+                                
+                                    <div className="msg_history">
+                                        { messages.map((message,index) =>(
+                                            ((message.from === account)&&(message.to === contacts[selectedContactIndex].address)) ?
+                                                <div className="outgoing_msg" key={index}>
+                                                    <div className="sent_msg">
+                                                        <p>{message.message}</p>
+                                                        <span className="time_date">{message.beautyTime}</span> 
+                                                    </div>
+                                                </div>
+                                            : ((message.to === account)&&(message.from === contacts[selectedContactIndex].address))?
+                                                <div className="incoming_msg" key={index}>
+                                                    <div className="incoming_msg_img"> <img src={userProfilePic} alt={contacts[selectedContactIndex].name} /> </div>
+                                                    <div className="received_msg">
+                                                        <div className="received_withd_msg">
+                                                            <p>{message.message}</p>
+                                                            <span className="time_date">{message.beautyTime}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            :<div key={index}></div>
+                                        ))}
+
                                     </div>
-                                </div>
-                            : ((message.to === account)&&(message.from === contacts[selectedContactIndex].address))?
-                                <div className="incoming_msg" key={index}>
-                                    <div className="incoming_msg_img"> <img src={userProfilePic} alt={contacts.name} /> </div>
-                                    <div className="received_msg">
-                                        <div className="received_withd_msg">
-                                            <p>{message.message}</p>
-                                            <span className="time_date">{message.beautyTime}</span>
+                                    <span className={inputValue.length<24?"badge bg-secondary":"badge bg-danger"}>{inputValue.length}/32</span>
+                                    <div className="type_msg">
+                                        <div className="input_msg_write">
+                                            <input type="text" value = {inputValue} className="write_msg" placeholder="Type a message" onChange={this.onChangeHandler} maxLength="32"/>
+                                            <button disabled={inputValue.length === 0} className="msg_send_btn" style={{"marginTop":"-3px","marginRight":"10px"}} type="button" onClick={()=>this.sendMessage()}><i className="fa fa-paper-plane-o" aria-hidden="true"></i></button>
                                         </div>
                                     </div>
-                                </div>
-                            :<div key={index}></div>
-                        ))}
-
-                    </div>
-                    <span className={inputValue.length<24?"badge bg-secondary":"badge bg-danger"}>{inputValue.length}/32</span>
-                    <div className="type_msg">
-                        <div className="input_msg_write">
-                            <input type="text" value = {inputValue} className="write_msg" placeholder="Type a message" onChange={this.onChangeHandler} maxLength="32"/>
-                            <button disabled={inputValue.length === 0} className="msg_send_btn" style={{"marginTop":"-3px","marginRight":"10px"}} type="button" onClick={()=>this.sendMessage()}><i className="fa fa-paper-plane-o" aria-hidden="true"></i></button>
+                                    </div>
+                                </div>          
+                            </div>
                         </div>
-                    </div>
-                    </div>
-                </div>
-                               
-                </div></div>
-            }
+                }
             </div>
 
         );

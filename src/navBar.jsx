@@ -102,8 +102,8 @@ const NavBar = () => {
                   </NavLink>
                 </li>
                 <li>            
-                  <NavLink className="nav-item nav-link" to="/petAdoption">
-                    Game #2
+                  <NavLink className="nav-item nav-link" to="/TicTacToe">
+                    TicTacToe
                   </NavLink>
                 </li>
                 <li>            
@@ -113,6 +113,9 @@ const NavBar = () => {
                 </li>
               </ul>
             </li>
+            <NavLink className="nav-item nav-link" to="/test">
+              test
+            </NavLink>
           </div>
         </div>
       </nav>

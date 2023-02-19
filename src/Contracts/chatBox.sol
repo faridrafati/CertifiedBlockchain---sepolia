@@ -11,6 +11,7 @@ contract ChatBox {
     address receiver;
     bytes32 content;
     uint timestamp;
+    bool XOMessage;
   }
 
   struct ContractProperties {

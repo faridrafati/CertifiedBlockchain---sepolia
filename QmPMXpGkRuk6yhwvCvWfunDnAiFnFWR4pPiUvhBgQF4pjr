@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+        #myCanvas {
+            margin: auto;
+            display: block;
+        }
+        #Moltable {
+            margin: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="win">
+        <table id="Moltable">
+        </table>
+    </div>
+    <div>
+        <canvas id="myCanvas" style="border:1px solid #d3d3d3; background-color:aquamarine">
+            Your browser does not support the HTML5 canvas tag.</canvas>  
+    </div>
+    <script>
+        window.onload = function(){
+            function Collisions(){//Check for collisions between molecules
+                //local routines to help calculate new velocities
+                //**************** alpha *************
+                function alfa(i,j){ 
+                    //Compute the angle between the line combining molecule i and molecule j and the x-axis
+                    var xi,yi,xj,yj;
+                    xi=molecules[i].x; yi=molecules[i].y;
+                    xj=molecules[j].x; yj=molecules[j].y;
+                    if (Math.abs(xi-xj)<0.0000001){ // Avoid a zero denominator
+                        return Math.pi/2;
+                    }  
+                    else{
+                        return Math.atan((yi-yj)/(xi-xj));
+                }
+                }
+                //  *************** Transform *************
+                function Transform(x,y,alfa){
+                    var xy = new Array (2);
+                    xy[0]= x*Math.cos(alfa)+y*Math.sin(alfa);
+                    xy[1]=-x*Math.sin(alfa)+y*Math.cos(alfa);
+                    return xy;
+                }
+                // Transforms coordinates to a system at angle alpha with the x-axis 
+                //***************** Dist ****************
+                function Dist(i,j){//Distance between molecule i and molecule j one timestep in the future, prevents drawing artifacts when molecules are allowed to overlap
+                    var  xi,yi,xj,yj;
+                    xi=molecules[i].x+molecules[i].vx*dt; 
+                    yi=molecules[i].y+molecules[i].vy*dt;
+        
+                    xj=molecules[j].x+molecules[j].vx*dt;
+                    yj=molecules[j].y+molecules[j].vy*dt;
+
+                    return Math.sqrt(Math.pow((xi-xj),2)+Math.pow((yi-yj),2));
+                }
+                var i,j, count,
+                alfa1,g,mi,mj,ri,rj,
+                uxinew,uxjnew,uyinew,uyjnew,
+                uxi,uyi,uxj,uyj,MolCC;
+                var xy = new Array(2);
+                i=0;
+                do{
+                    j=i+1;
+                    do{      
+                        // We use a coordinate system S' with x-axis parallell to the line connecting the centers of the two molecules in collision. 
+                        ri=molecules[i].r;
+                        rj=molecules[j].r;	
+                        MolCC=MolC;
+                        if (Dist(i,j)<=(ri+rj)){
+                            MolC='yellow';
+                            mi=molecules[i].m; 
+                            mj=molecules[j].m;
+                            alfa1=alfa(i,j);
+                            g=mi/mj; 
+                            //Transform velocities to S', u's are coordinates in S'  
+                            xy=Transform(molecules[i].vx,molecules[i].vy,alfa1);
+                            uxi=xy[0];
+                            uyi=xy[1];
+                            xy=Transform(molecules[j].vx,molecules[j].vy,alfa1);
+                            uxj=xy[0];
+                            uyj=xy[1];
+                            uxinew=((g-1)*uxi+2*uxj)/(1+g);
+                            //Compute velocities after collision in S'
+                            uxjnew=((1-g)*uxj+2*g*uxi)/(1+g);
+                            uyinew=uyi;
+                            uyjnew=uyj;
+
+                            //Now transform back to the original system 
+                            xy=Transform(uxinew,uyinew,-alfa1);
+                            molecules[i].vx=xy[0];
+                            molecules[i].vy=xy[1];
+                            xy=Transform(uxjnew,uyjnew,-alfa1);
+                            molecules[j].vx=xy[0];
+                            molecules[j].vy=xy[1];
+                            //Move molecules apart to avoid them sticking to each other
+                            if (Dist(i,j)<=(ri+rj)){
+                                count=0;
+                                //prevent infinite loop if two stationary molecules get close
+                                while ((count<10) && (Dist(i,j)<=ri+rj)){
+                                    molecules[i].Move;
+                                    molecules[j].Move;
+                                    count +=1;					
+                                } 
+                            }
+                        }
+                        else{
+                            MolC=MolCC;
+                        }
+                        j=j+1;
+                    }while(j<n);
+                    i=i+1;
+                }while(i<n-1);
+            }
+        
+            function Ellipse(ux,uy,lx,ly,clr) {
+                var canvas = document.getElementById('myCanvas');
+                var context = canvas.getContext('2d');
+                var centerX = (ux+lx) / 2;
+                var centerY = (uy+ly) / 2;
+                var radius = Math.abs(ux-lx) / 2;
+                context.beginPath();
+                context.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+                context.fillStyle = clr;
+                context.fill();
+                context.lineWidth = 1;
+                context.strokeStyle = BGC;
+                context.stroke();  
+            }
+            function TMolecules (r,m,x,y,vx,vy,clr) {
+                this.r = r;
+                this.m = m;
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.clr = clr;
+                this.Erase = function () {
+                    clr=BGC;
+                    Ellipse(Math.trunc(this.x-this.r+0.5),Math.trunc(this.y-this.r+0.5),Math.trunc(this.x+this.r+0.5),Math.trunc(this.y+this.r+0.5),clr);
+                }   
+                this.Init = function (r1,m1,x1,y1,vx1,vy1,clr1) {
+                    this.r = r1;
+                    this.m = m1
+                    this.x = x1;
+                    this.y = y1
+                    this.vx = vx1;
+                    this.vy = vy1;
+                    this.clr = clr1;
+                }
+                this.Draw = function(){
+                    Ellipse(Math.trunc(this.x-this.r+0.5),Math.trunc(this.y-this.r+0.5),Math.trunc(this.x+this.r+0.5),Math.trunc(this.y+this.r+0.5),this.clr);
+                }    
+                this.Move = function(){
+                    this.Erase();
+                    this.x=this.x+this.vx*dt;
+                    this.y=this.y+this.vy*dt;
+                    this.Draw();
+                }
+                this.MoveTo = function(x1,y1){
+                    this.Erase();
+                    this.x=x1;
+                    this.y=y1;
+                    this.Draw();
+                }
+                this.Reflect= function(){
+                    if (this.x<this.r) {
+                        this.vx=-this.vx; 
+                        this.MoveTo(this.r+0.5,this.y); 
+                    }
+                    if (this.x>w-this.r) {
+                        this.vx=-this.vx; 
+                        this.MoveTo(w-this.r-0.5,this.y);
+                    }
+                    if (this.y<this.r){
+                        this.vy=-this.vy;  
+                        this.MoveTo(this.x,this.r+0.5);
+                    }
+                    if (this.y>h-this.r) {
+                        this.vy=-this.vy; 
+                    this.MoveTo(this.x,h-this.r-0.5);
+                    }
+                }
+            }
+
+            function msetup(){
+                var ctx = canvas.getContext("2d");
+                ctx.fillStyle =BGC;
+                ctx.fillRect(0, 0, w, h);
+                var chk_arr =  document.getElementsByName("MoleculeDrawTypes");
+                var chklength = chk_arr.length;             
+                n=60;
+                MolC='Blue';
+                molecules[0].Init(20,10,Math.floor(w/2), Math.floor(h/2),-5,-5,MolC);
+                for (i=1;i<Math.floor(n/2);i++) {
+                    MolC='Red';
+                    molecules[i].Init(10,1,10+30*i,100,30,30,MolC);
+                    molecules[29+i].Init(10,1,10+30*i,150,30,30,MolC);
+                }
+                n=59;
+            }
+            function MR() {
+                var i;
+                i=0;
+                do {
+                    molecules[i].Move();
+                    molecules[i].Reflect();
+                    Collisions();
+                    i=i+1;            
+                } while (i<n);    
+            }
+            function RunMoleculeDrawModel(){
+                msetup();
+                setInterval(MR,10);
+            }
+            var MolC="Red";
+            var table = document.getElementById("Moltable");
+            var canvas=document.getElementById("myCanvas");
+            canvas.width= Math.floor(0.9*(window.innerWidth));
+            canvas.height=Math.floor(0.9*(window.innerHeight-table.offsetHeight));
+            BGC='aquamarine';
+            var h=canvas.height;
+            var w=canvas.width;
+            var dt = 0.1;
+            var n=60;
+            var molecules = []; // instantiate an array
+            for(i=0; i<n; i++) {
+                molecules[i] = new TMolecules(); // assign to instant of TMolecules
+            }
+            alert("This is the Second Version of Happy Molecules, if you like it please comment and upvote it!!!");
+            RunMoleculeDrawModel();
+        }
+
+    </script>
+    
+</body>
+</html>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Route, Redirect, Switch } from "react-router-dom";
 import CoderToken from './coderToken';
-import './App.css';
+import './components/css/App.css';
 import VotingContract from './votingContract';
 import NavBar from './navBar';
 import NotFound from './notFound';
@@ -19,6 +19,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import GuessingGame from './GuessingGame';
 import CrowdSale from './crowdSale';
 import ChatBox from './chatBox';
+import Test from './test';
+
 
 
 class App extends resetProvider {
@@ -47,6 +49,7 @@ class App extends resetProvider {
         <Route path="/pollSurvey" component={BlockchainPoll} />
         <Route path="/petAdoption" component={PetShop} />
         <Route path="/guessing" component={GuessingGame} />
+        <Route path="/test" component={Test} />
         <Route path="/not-found" component={NotFound} />
         <Redirect from="/" exact to="/token" />
         <Redirect to="/not-found" />
